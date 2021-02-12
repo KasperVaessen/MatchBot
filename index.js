@@ -122,6 +122,8 @@ function addPoints(authorID, amount) {
         return;
     }
 
+    // TODO add message to let users know how many points they won/lost
+
     points[authorID] = parseFloat(points[authorID]) + amount;
 
     fs.writeFile("./points.json", JSON.stringify(points), (err) => {
@@ -131,9 +133,26 @@ function addPoints(authorID, amount) {
 
 function roulette(msg) {
     const split = msg.content.split(" ");
+
+    const command = split[1];
+    if (command === "stop" && msg.member.roles.cache.some(r => r.name.toLowerCase() === "match")) {
+        rouletteInzetMag = false;
+        msg.channel.send("Roulette betting has stopped, spinning will start soon!")
+        return;
+    } else if (command === "start" && msg.member.roles.cache.some(r => r.name.toLowerCase() === "match")) {
+        rouletteInzetMag = true;
+        msg.channel.send("You can now place your bets for Roulette!")
+        // TODO: roulette help bericht hier
+        return;
+    } else if (command === "spin" && msg.member.roles.cache.some(r => r.name.toLowerCase() === "match")) {
+        const outcome = split[2];
+        rouletteSpin(msg, outcome);
+        return;
+    }
+
     const inzet = split[1].toLowerCase();
-    const hoeveelheid = split[2];
-    if (!inzet || !hoeveelheid) {
+    const hoeveelheid = parseFloat(split[2]);
+    if (!inzet || !hoeveelheid || isNaN(hoeveelheid)) {
         // verkeerde input
         return;
     }
@@ -202,7 +221,7 @@ function rouletteSpin(msg, outcome) {
             }
         }
 
-        addPoints(user, winAmount);
+        addPoints(userID, winAmount);
     }
 
 
@@ -278,45 +297,5 @@ function getUserFromMention(mention) {
 
 const reds = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
 const blacks = [2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35];
-
-const numbers = {
-    0: ["green"],
-    1: ["red"],
-    2:  ["black"],
-    3: ["red"],
-    4:  ["black"],
-    5: ["red"],
-    6:  ["black"],
-    7: ["red"],
-    8:  ["black"],
-    9: ["red"],
-    10:  ["black"],
-    11: ["black"],
-    12:  ["red"],
-    13: ["black"],
-    14:  ["red"],
-    15: ["black"],
-    16:  ["red"],
-    17: ["black"],
-    18:  ["red"],
-    19: ["red"],
-    20:  ["black"],
-    21: ["red"],
-    22:  ["black"],
-    23: ["red"],
-    24:  ["black"],
-    25: ["red"],
-    26:  ["black"],
-    27: ["red"],
-    28:  ["black"],
-    29: ["black"],
-    30:  ["red"],
-    31: ["black"],
-    32:  ["red"],
-    33: ["black"],
-    34:  ["red"],
-    35: ["black"],
-    36:  ["red"],
-}
 
 client.login(config.token)
