@@ -9,6 +9,7 @@ let rouletteInzetMag = true;
 let currentRouletteInzet = {};
 let wheelInzetMag = true;
 let currentWheel = {};
+const helpImage = "https://cdn.discordapp.com/attachments/708321188945854538/812410074256375868/unknown.png";
 
 let points = JSON.parse(fs.readFileSync("./points.json", "utf8"));
 
@@ -18,7 +19,14 @@ client.on("ready", function () {
 
 client.on("message", function (msg) {
 
+
+
     if (msg.author.bot) {
+        return;
+    }
+
+    if (msg.channel.type === "dm") {
+        msg.channel.send("Private messages are disabled");
         return;
     }
 
@@ -115,10 +123,13 @@ client.on("message", function (msg) {
 function addPoints(authorID, amount) {
     if (!points[authorID]) {
         // user not found
+        // msg.channel.send("User not found");
         return;
     }
     if (points[authorID] + amount < 0) {
         // No more money
+        // msg.channel.send("Error: User would end with negative money");
+        points[authorID] = 0;
         return;
     }
 
@@ -137,36 +148,58 @@ function roulette(msg) {
     const command = split[1];
     if (command === "stop" && msg.member.roles.cache.some(r => r.name.toLowerCase() === "match")) {
         rouletteInzetMag = false;
-        msg.channel.send("Roulette betting has stopped, spinning will start soon!")
+        msg.channel.send("Roulette betting has stopped, spinning will start soon!");
         return;
     } else if (command === "start" && msg.member.roles.cache.some(r => r.name.toLowerCase() === "match")) {
         rouletteInzetMag = true;
         msg.channel.send("You can now place your bets for Roulette!")
+        msg.channel.send(helpImage);
         // TODO: roulette help bericht hier
         return;
     } else if (command === "spin" && msg.member.roles.cache.some(r => r.name.toLowerCase() === "match")) {
         const outcome = split[2];
         rouletteSpin(msg, outcome);
         return;
+    } else if (command === "help") {
+        printRouletteHelp(msg);
+        return;
+    } else if (!rouletteInzetMag) {
+        msg.channel.send("Roulette is not open for betting right now");
+        return;
     }
 
     const inzet = split[1].toLowerCase();
     const hoeveelheid = parseFloat(split[2]);
-    if (!inzet || !hoeveelheid || isNaN(hoeveelheid)) {
+    if (!inzet || isNaN(hoeveelheid) || hoeveelheid <= 0) {
         // verkeerde input
+        msg.channel.send("Unknown input (error 1)");
         return;
     }
 
     // check valid input
-    if (Number.isNaN(getMultiplier(inzet))) {
+
+    if (isNaN(getMultiplier(inzet))) {
         // verkeerde input
+        msg.channel.send("Unknown input (error 2)");
         return;
     }
-
 
     if (!currentRouletteInzet[msg.author.id]) {
         currentRouletteInzet[msg.author.id] = [];
     }
+
+    //check of de user niet meer geld inzet dan hij heeft
+    let betAmount = hoeveelheid;
+    for (let i of currentRouletteInzet[msg.author.id]) {
+        betAmount += i.hoeveelheid;
+    }
+    if (betAmount > points[msg.author.id]) {
+        msg.channel.send("You don't have that much money");
+        return;
+    }
+
+    msg.channel.send("You bet " + hoeveelheid + " on " + inzet + " which has multiplier " + getMultiplier(inzet));
+
 
     currentRouletteInzet[msg.author.id].push({
         inzet: inzet,
@@ -194,7 +227,7 @@ function getMultiplier(inzet) {
             return 2;
         default:
             const num = parseInt(inzet);
-            if (!num || num < 0 || num > 36) {
+            if (isNaN(num) || num < 0 || num > 36) {
                 // verkeerde input
                 return NaN;
             }
@@ -204,8 +237,9 @@ function getMultiplier(inzet) {
 
 function rouletteSpin(msg, outcome) {
     const num = parseInt(outcome);
-    if (!num || num < 0 || num > 36) {
+    if (num < 0 || num > 36) {
         // verkeerde input
+        msg.channel.send("Unknown input (error 3)");
         return;
     }
 
@@ -220,19 +254,21 @@ function rouletteSpin(msg, outcome) {
                 winAmount -= inzetObj.hoeveelheid;
             }
         }
-
         addPoints(userID, winAmount);
+        msg.channel.send(client.users.cache.find(user => user.id === userID).username + " has won " + winAmount + " and now has a balance of " + points[userID]);
     }
+    // TODO do not allow betting more than your balance
 
+    currentRouletteInzet = {};
 
 }
 
 function isWin(actualNumber, inzet) {
     switch (inzet) {
         case "black":
-            return blacks.contains(actualNumber);
+            return blacks.includes(actualNumber);
         case "red":
-            return reds.contains(actualNumber);
+            return reds.includes(actualNumber);
         case "even":
             return actualNumber !== 0 && actualNumber % 2 === 0;
         case "odd":
@@ -256,8 +292,9 @@ function isWin(actualNumber, inzet) {
 
         default:
             const num = parseInt(inzet);
-            if (!num || num < 0 || num > 36) {
+            if (isNaN(inzet) || num < 0 || num > 36) {
                 // verkeerde input
+                // msg.channel.send("Unknown input (error 4)");
                 return NaN;
             }
             return actualNumber === num;
@@ -293,6 +330,14 @@ function getUserFromMention(mention) {
 
         return client.users.cache.get(mention).id;
     }
+}
+
+function printRouletteHelp(msg) {
+    msg.channel.send("After betting has opened you can bet by using \"!roulette <bet> <amount>\"\n" +
+    "The options for bet are the following: \"black\", \"red\", \"1st\", \"2nd\", \"3rd\", \"1to18\", \"19to36\", \"a\", \"b\", \"c\" or any number\n" +
+    "For example \"!roulette black 100\" or \"!roulette 5 2020\"\n" +
+    "To make multiple bets simply type them in separate messages\n");
+    msg.channel.send(helpImage);
 }
 
 const reds = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
