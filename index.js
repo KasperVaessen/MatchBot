@@ -93,7 +93,7 @@ client.on("message", function (msg) {
                             sentEmbed.react("👎")
 
                             sentEmbed.awaitReactions((reaction, u) => u.id == msg.author.id && (reaction.emoji.name == '👍' || reaction.emoji.name == '👎'),
-                                {max: 1, time: 30000}).then(collected => {
+                                {max: 1, time: 900000}).then(collected => {
                                 if (collected.first().emoji.name == '👍') {
                                     addPoints(user, currentBlackJack[user])
                                     client.users.fetch(user).then(us => msg.channel.send(us.username + " has won " + currentBlackJack[user]))
@@ -102,11 +102,12 @@ client.on("message", function (msg) {
                                     client.users.fetch(user).then(us => msg.channel.send(us.username + " has lost " + currentBlackJack[user]))
                                 }
                             }).catch(() => {
-                                message.reply('No reaction after 30 seconds, operation canceled');
+                                message.reply('No reaction after 15 minutes, operation canceled');
                             });
                         })
                     })
                 }
+                currentBlackJack = {}
                 return
             }
         }
@@ -264,6 +265,9 @@ function roulette(msg) {
         return;
     }
 
+    if(split.length < 2) {
+        return;
+    }
     const inzet = split[1].toLowerCase();
     const hoeveelheid = parseFloat(split[2]);
     if (!inzet || isNaN(hoeveelheid) || hoeveelheid <= 0) {
