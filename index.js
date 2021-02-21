@@ -430,7 +430,7 @@ function getUserFromMention(mention) {
 
 function printRouletteHelp(msg) {
     msg.channel.send("After betting has opened you can bet by using \"!roulette <bet> <amount>\"\n" +
-    "The options for bet are the following: \"black\", \"red\", \"1st\", \"2nd\", \"3rd\", \"1to18\", \"19to36\", \"a\", \"b\", \"c\" or any number\n" +
+    "The options for bet are the following: \"black\", \"red\", \"1st\", \"2nd\", \"3rd\", \"1to18\", \"19to36\", \"a\", \"b\", \"c\", \"odd\", \"even\" or any number\n" +
     "For example \"!roulette black 100\" or \"!roulette 5 2020\"\n" +
     "To make multiple bets simply type them in separate messages\n");
     msg.channel.send(helpImage);
