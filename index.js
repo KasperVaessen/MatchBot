@@ -96,9 +96,9 @@ client.on("message", function (msg) {
                             sentEmbed.awaitReactions((reaction, u) => u.id == msg.author.id && (reaction.emoji.name == '👍' || reaction.emoji.name == '👎'),
                                 {max: 1, time: 900000}).then(collected => {
                                 if (collected.first().emoji.name == '👍') {
-                                    bjHelp(user, 1, msg)
+                                    bjHelp(user, 1, msg, "won")
                                 } else {
-                                    bjHelp(user, -1, msg)
+                                    bjHelp(user, -1, msg, "lost")
                                 }
                             }).catch(() => {
                                 message.reply('No reaction after 15 minutes, operation canceled');
@@ -430,9 +430,9 @@ function getUserFromMention(mention) {
     }
 }
 
-async function bjHelp(user, mult, msg) {
+async function bjHelp(user, mult, msg, text) {
     await addPoints(user, mult*currentBlackJack[user])
-    await client.users.fetch(user).then(us => msg.channel.send(us.username + " has won " + currentBlackJack[user]))
+    await client.users.fetch(user).then(us => msg.channel.send(us.username + " has " + text + " " + currentBlackJack[user]))
     delete currentBlackJack[user]
 }
 
