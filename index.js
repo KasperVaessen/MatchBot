@@ -96,11 +96,9 @@ client.on("message", function (msg) {
                             sentEmbed.awaitReactions((reaction, u) => u.id == msg.author.id && (reaction.emoji.name == '👍' || reaction.emoji.name == '👎'),
                                 {max: 1, time: 900000}).then(collected => {
                                 if (collected.first().emoji.name == '👍') {
-                                    addPoints(user, currentBlackJack[user])
-                                    client.users.fetch(user).then(us => msg.channel.send(us.username + " has won " + currentBlackJack[user]))
+                                    bjHelp(user, 1, msg)
                                 } else {
-                                    addPoints(user, -currentBlackJack[user])
-                                    client.users.fetch(user).then(us => msg.channel.send(us.username + " has lost " + currentBlackJack[user]))
+                                    bjHelp(user, -1, msg)
                                 }
                             }).catch(() => {
                                 message.reply('No reaction after 15 minutes, operation canceled');
@@ -108,7 +106,6 @@ client.on("message", function (msg) {
                         })
                     })
                 }
-                currentBlackJack = {}
                 return
             }
         }
@@ -431,6 +428,12 @@ function getUserFromMention(mention) {
 
         return client.users.cache.get(mention).id;
     }
+}
+
+async function bjHelp(user, mult, msg) {
+    await addPoints(user, mult*currentBlackJack[user])
+    await client.users.fetch(user).then(us => msg.channel.send(us.username + " has won " + currentBlackJack[user]))
+    delete currentBlackJack[user]
 }
 
 function printRouletteHelp(msg) {
