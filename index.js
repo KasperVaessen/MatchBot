@@ -59,7 +59,8 @@ client.on("message", function (msg) {
 
     if (msg.content.toLowerCase().startsWith(prefix + "help")) {
         msg.channel.send("An explanation for each game can be found using !<game> help.\n" +
-            "You can see the leaderboard by typing !leaderboard")
+            "You can see the leaderboard by typing !leaderboard\n" +
+            "You can see your own balance by typing !balance")
     }
 
     if (msg.content.toLowerCase().startsWith(prefix + "leaderboard")) {
