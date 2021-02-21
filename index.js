@@ -10,6 +10,7 @@ let currentRouletteInzet = {};
 let wheelInzetMag = true;
 let currentWheel = {};
 const helpImage = "https://cdn.discordapp.com/attachments/708321188945854538/812410074256375868/unknown.png";
+let currentBlackJack = {};
 
 let points = JSON.parse(fs.readFileSync("./points.json", "utf8"));
 
@@ -18,8 +19,6 @@ client.on("ready", function () {
 });
 
 client.on("message", function (msg) {
-
-
 
     if (msg.author.bot) {
         return;
@@ -30,7 +29,7 @@ client.on("message", function (msg) {
         return;
     }
 
-    if (!points[msg.author.id]) {
+    if (Number.isNaN(points[msg.author.id])) {
         points[msg.author.id] = startPoints;
 
         fs.writeFile("./points.json", JSON.stringify(points), (err) => {
@@ -44,26 +43,110 @@ client.on("message", function (msg) {
         //add money to user
         if (msg.content.startsWith(prefix + "add ")) {
             let message = msg.content.substring(prefix.length + 4)
-            let arr = message.split(' ')
+            let arr = message.trim().split(/\s+/)
             let id = getUserFromMention(arr[0])
             addPoints(id, parseInt(arr[1]))
+            msg.channel.send(arr[0] + " has been awarded " + arr[1] + " and now has balance " + points[id])
         }
     }
 
+    if (msg.content.toLowerCase().startsWith(prefix + "poker help")) {
+        msg.channel.send("You can play poker at the following link:\n" +
+            "https://www.pokernow.club/start-game\n" +
+            "Agree with your room on a amount to start with (make sure you don't choose more than your balance).\n" +
+            "When you are finished (or just don't feel like playing anymore), let one person in your room send a screenshot and your start amount to one of the MatCH members.")
+    }
+
+    if (msg.content.toLowerCase().startsWith(prefix + "help")) {
+        msg.channel.send("An explanation for each game can be found using !<game> help.\n" +
+            "You can see the leaderboard by typing !leaderboard")
+    }
+
+    if (msg.content.toLowerCase().startsWith(prefix + "leaderboard")) {
+        let arr = []
+
+        for (let user in points) {
+            arr.push([user, points[user]])
+        }
+
+        arr.sort(function (a, b) {
+            return b[1] - a[1];
+        })
+
+        for (let i = 0; i < 5; i++) {
+            if (i >= arr.length) {
+                return
+            }
+            client.users.fetch(arr[i][0]).then(user => msg.channel.send(user.username + ": " + arr[i][1]))
+        }
+    }
+
+    //blackjack
+    if (msg.content.toLowerCase().startsWith(prefix + "blackjack ")) {
+        let message = msg.content.substr(prefix.length + 10);
+        if (msg.member.roles.cache.some(r => r.name.toLowerCase() === "match")) {
+            if (message.startsWith("close")) {
+                for (let user in currentBlackJack) {
+                    client.users.fetch(user).then(us => {
+                        msg.channel.send(us.username).then(sentEmbed => {
+                            sentEmbed.react("👍")
+                            sentEmbed.react("👎")
+
+                            sentEmbed.awaitReactions((reaction, u) => u.id == msg.author.id && (reaction.emoji.name == '👍' || reaction.emoji.name == '👎'),
+                                {max: 1, time: 30000}).then(collected => {
+                                if (collected.first().emoji.name == '👍') {
+                                    addPoints(user, currentBlackJack[user])
+                                    client.users.fetch(user).then(us => msg.channel.send(us.username + " has won " + currentBlackJack[user]))
+                                } else {
+                                    addPoints(user, -currentBlackJack[user])
+                                    client.users.fetch(user).then(us => msg.channel.send(us.username + " has lost " + currentBlackJack[user]))
+                                }
+                            }).catch(() => {
+                                message.reply('No reaction after 30 seconds, operation canceled');
+                            });
+                        })
+                    })
+                }
+                return
+            }
+        }
+        if(message.includes("help")) {
+            msg.channel.send("You can place your bets by typing !blackjack <bet>\n" +
+                "The dealer will take care of the rest.")
+            return
+        }
+        let inzet = parseFloat(message.trim())
+        if(Number.isNaN(inzet)) {
+            msg.channel.send("Bet must be a number")
+            return
+        }
+        if(inzet <= 0) {
+            msg.channel.send("Bet must be above 0")
+            return
+        }
+        if(inzet > points[msg.author.id]) {
+            msg.channel.send("You don't have that much money")
+            return
+        }
+        currentBlackJack[msg.author.id] = inzet
+        msg.channel.send(msg.author.username + " has betted " + inzet)
+    }
 
     //wheel game
-    if (msg.content.startsWith(prefix + "wheel ")) {
+    if (msg.content.toLowerCase().startsWith(prefix + "wheel ")) {
         let message = msg.content.substr(prefix.length + 6);
         //user is match member
         if (msg.member.roles.cache.some(r => r.name.toLowerCase() === "match")) {
             if (message.startsWith('close')) {
                 wheelInzetMag = false;
+                msg.channel.send("Wheel betting has now been closed")
             }
             if (message.startsWith('multiply')) {
                 let factor = parseFloat(message.split(' ')[1]) - 1
                 for (let key in currentWheel) {
                     let amount = currentWheel[key];
                     addPoints(key, amount * factor)
+                    msg.channel.send(client.users.cache.get(key).username + " has won " + amount * factor + " and now has " + points[key])
                 }
                 wheelInzetMag = true;
                 currentWheel = {};
@@ -72,6 +155,7 @@ client.on("message", function (msg) {
                 let amount = parseInt(message.split(' ')[1])
                 for (let key in currentWheel) {
                     addPoints(key, amount)
+                    msg.channel.send(client.users.cache.get(key).username + " has won " + amount + " and now has " + points[key])
                 }
                 wheelInzetMag = true;
                 currentWheel = {};
@@ -79,18 +163,30 @@ client.on("message", function (msg) {
         }
 
         //user is not match member
-        if (message.startsWith('bet')) {
+        if (message.toLowerCase().match(/\s*bet.*/)) {
             if (!wheelInzetMag) {
                 msg.channel.send("Game in progress, betting is closed.");
             } else {
                 let amount = parseFloat(message.split(' ')[1])
-                if (!Number.isNaN(amount) && amount != 0) {
+                if (!Number.isNaN(amount)) {
+                    if (amount <= 0) {
+                        msg.channel.send("You have to place bets higher than 0")
+                        return
+                    }
+                    if (amount > points[msg.author.id]) {
+                        msg.channel.send("You don't have enough balance for that")
+                        return
+                    }
                     currentWheel[msg.author.id] = amount;
-                    msg.channel.send("you have betted: " + amount)
+                    msg.channel.send("You have betted: " + amount)
                 } else {
-                    msg.channel.send("please give your bet in the following format: " + prefix + "wheel bet [number]")
+                    msg.channel.send("Please give your bet in the following format: " + prefix + "wheel bet [number]")
                 }
             }
+        }
+
+        if (message.toLowerCase().match(/\s*help.*/)) {
+            msg.channel.send("You can place your bets using \"!wheel bet <amount>\".\n After bets have been closed, your bet won't be taken into account.\n If you make two bets, only the last one will be taken into account.")
         }
 
 
@@ -115,13 +211,13 @@ client.on("message", function (msg) {
     }
 
 
-    if (msg.content === "MatCH") {
+    if (msg.content.toLowerCase() === "match") {
         msg.channel.send("\'Vo")
     }
 })
 
 function addPoints(authorID, amount) {
-    if (!points[authorID]) {
+    if (Number.isNaN(points[authorID])) {
         // user not found
         // msg.channel.send("User not found");
         return;
